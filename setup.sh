@@ -86,7 +86,7 @@ cat > "$PLIST_PATH" << PLISTEOF
     <integer>14400</integer>
 
     <key>RunAtLoad</key>
-    <false/>
+    <true/>
 
     <key>StandardOutPath</key>
     <string>${LOG_DIR}/arena-monitor.log</string>
