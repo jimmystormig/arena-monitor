@@ -1,0 +1,5 @@
+.claude
+.venv
+.env
+logs
+.arena-seen-news.json
