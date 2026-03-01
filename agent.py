@@ -1,88 +1,30 @@
 """
-Arena Monitor — Anthropic Agent SDK agent.
+Arena Monitor — Claude Agent SDK agent.
 
-Replaces the claude CLI + arena-monitor-prompt.md approach with a proper
-Python agent that calls typed tools. The three Python tool scripts are
-unchanged; this file orchestrates them via structured tool_use calls.
+Uses the claude-agent-sdk to route model calls through a Claude Code
+subscription. The five tools are exposed via an external stdio MCP server
+(tools/mcp_server.py); the agentic loop is handled by the SDK.
 """
 
-import json
+import asyncio
 import os
-import subprocess
 import sys
 from datetime import datetime
 
-import anthropic
+from claude_agent_sdk import (
+    AssistantMessage,
+    ClaudeAgentOptions,
+    ResultMessage,
+    TextBlock,
+    query,
+)
 from dotenv import load_dotenv
 
 load_dotenv()
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 VENV_PYTHON = os.path.join(SCRIPT_DIR, ".venv", "bin", "python")
-SEEN_NEWS_FILE = os.path.join(SCRIPT_DIR, ".arena-seen-news.json")
-
-client = anthropic.Anthropic()
-
-TOOLS = [
-    {
-        "name": "check_imap",
-        "description": "Check iCloud Mail for unread Arena notifications. Returns JSON with has_notifications (bool) and count (int). If has_notifications is false, stop — do not scrape.",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-        },
-    },
-    {
-        "name": "scrape_arena",
-        "description": "Log into Arena för lärande and scrape news items for all children. Returns a JSON array of news items, each with: child, title, date, url, content_text, content_html.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "limit": {
-                    "type": "integer",
-                    "description": "Max news items to fetch per child. Default 5.",
-                }
-            },
-        },
-    },
-    {
-        "name": "read_seen_news",
-        "description": "Read the list of already-processed news URLs from .arena-seen-news.json. Returns a JSON array of URL strings. Returns [] if file does not exist.",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-        },
-    },
-    {
-        "name": "write_seen_news",
-        "description": "Persist the updated list of seen news URLs to .arena-seen-news.json. Pass ALL URLs (previously seen + newly processed), they will be sorted and deduplicated.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "urls": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "All seen URLs to persist.",
-                }
-            },
-            "required": ["urls"],
-        },
-    },
-    {
-        "name": "send_email",
-        "description": "Send an email via SMTP (iCloud Mail). Use SMTP_TO env var for the recipient.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "to": {"type": "string", "description": "Recipient email address."},
-                "subject": {"type": "string", "description": "Email subject line."},
-                "body_text": {"type": "string", "description": "Plain text email body."},
-                "body_html": {"type": "string", "description": "HTML email body."},
-            },
-            "required": ["to", "subject", "body_text", "body_html"],
-        },
-    },
-]
+MCP_SERVER = os.path.join(SCRIPT_DIR, "tools", "mcp_server.py")
 
 HTML_TEMPLATE = """\
 <!DOCTYPE html>
@@ -147,57 +89,31 @@ En nyhet är NY om dess url INTE finns i denna lista.
    "Klart. Hittade 3 nya nyheter (2 för barn 1, 1 för barn 2). Skickade 3 e-postmeddelanden."
 """
 
+# ---------------------------------------------------------------------------
+# Query options — external stdio MCP server
+# ---------------------------------------------------------------------------
 
-def run_tool(name: str, inputs: dict) -> str:
-    if name == "check_imap":
-        result = subprocess.run(
-            [VENV_PYTHON, os.path.join(SCRIPT_DIR, "tools", "check-imap.py")],
-            capture_output=True,
-            text=True,
-            cwd=SCRIPT_DIR,
-        )
-        return result.stdout or result.stderr
+OPTIONS = ClaudeAgentOptions(
+    system_prompt=SYSTEM,
+    mcp_servers={
+        "arena-tools": {
+            "command": VENV_PYTHON,
+            "args": [MCP_SERVER],
+        }
+    },
+    allowed_tools=[
+        "mcp__arena-tools__check_imap",
+        "mcp__arena-tools__scrape_arena",
+        "mcp__arena-tools__read_seen_news",
+        "mcp__arena-tools__write_seen_news",
+        "mcp__arena-tools__send_email",
+    ],
+    model="claude-sonnet-4-6",
+)
 
-    elif name == "scrape_arena":
-        limit = inputs.get("limit", 5)
-        result = subprocess.run(
-            [
-                VENV_PYTHON,
-                os.path.join(SCRIPT_DIR, "tools", "arena-scraper.py"),
-                "--limit",
-                str(limit),
-            ],
-            capture_output=True,
-            text=True,
-            cwd=SCRIPT_DIR,
-        )
-        return result.stdout or result.stderr
-
-    elif name == "read_seen_news":
-        try:
-            with open(SEEN_NEWS_FILE) as f:
-                return f.read()
-        except FileNotFoundError:
-            return "[]"
-
-    elif name == "write_seen_news":
-        urls = sorted(set(inputs["urls"]))
-        with open(SEEN_NEWS_FILE, "w") as f:
-            json.dump(urls, f, indent=2, ensure_ascii=False)
-        return json.dumps({"ok": True, "count": len(urls)})
-
-    elif name == "send_email":
-        result = subprocess.run(
-            [VENV_PYTHON, os.path.join(SCRIPT_DIR, "tools", "send-email.py")],
-            input=json.dumps(inputs),
-            capture_output=True,
-            text=True,
-            cwd=SCRIPT_DIR,
-        )
-        return result.stdout or result.stderr
-
-    return json.dumps({"error": f"Unknown tool: {name}"})
-
+# ---------------------------------------------------------------------------
+# Logging & main
+# ---------------------------------------------------------------------------
 
 LOG_FILE = os.path.join(SCRIPT_DIR, "logs", "runs.log")
 
@@ -209,44 +125,18 @@ def append_log(summary: str):
         f.write(f"{timestamp}  {summary}\n")
 
 
-def main():
-    messages = [{"role": "user", "content": "Kör arena-monitor nu."}]
-
-    while True:
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=8096,
-            system=SYSTEM,
-            tools=TOOLS,
-            messages=messages,
-        )
-        messages.append({"role": "assistant", "content": response.content})
-
-        if response.stop_reason == "end_turn":
-            summary = ""
-            for block in response.content:
-                if hasattr(block, "text"):
-                    summary = block.text
-                    print(summary)
-            append_log(summary)
-            break
-
-        tool_results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                print(f"[tool] {block.name}({json.dumps(block.input)})", file=sys.stderr)
-                result = run_tool(block.name, block.input)
-                tool_results.append(
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": result,
-                    }
-                )
-
-        if tool_results:
-            messages.append({"role": "user", "content": tool_results})
+async def main():
+    summary = ""
+    async for message in query(prompt="Kör arena-monitor nu.", options=OPTIONS):
+        if isinstance(message, AssistantMessage):
+            for block in message.content:
+                if isinstance(block, TextBlock):
+                    print(block.text, file=sys.stderr)
+        elif isinstance(message, ResultMessage) and message.result:
+            summary = message.result
+    print(summary)
+    append_log(summary)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

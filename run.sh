@@ -17,4 +17,8 @@ mkdir -p "$SCRIPT_DIR/logs"
 
 echo "--- Arena Monitor run: $(date '+%Y-%m-%d %H:%M:%S') ---"
 
+# Unset CLAUDECODE so the claude-agent-sdk can launch its subprocess even when
+# invoked manually from inside a Claude Code session.
+unset CLAUDECODE
+
 "$SCRIPT_DIR/.venv/bin/python" "$SCRIPT_DIR/agent.py"

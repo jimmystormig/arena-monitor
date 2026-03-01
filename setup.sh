@@ -22,14 +22,28 @@ echo "║       Arena News Monitor - Setup                     ║"
 echo "╚══════════════════════════════════════════════════════╝"
 echo ""
 
-# Step 1: Check Python 3
-echo "→ Checking Python 3..."
-if command -v python3 &>/dev/null; then
-    PYTHON=$(command -v python3)
-    echo "  Found: $PYTHON ($($PYTHON --version))"
-else
+# Step 1: Check Python 3.10+
+echo "→ Checking Python 3.10+..."
+# Prefer Homebrew Python (3.10+) over the macOS system Python (3.9)
+for candidate in python3.13 python3.12 python3.11 python3.10 python3; do
+    if command -v "$candidate" &>/dev/null; then
+        PYTHON=$(command -v "$candidate")
+        break
+    fi
+done
+if [ -z "$PYTHON" ]; then
     echo "  ✗ Python 3 not found. Please install Python 3 first."
-    echo "    brew install python3"
+    echo "    brew install python@3.12"
+    exit 1
+fi
+echo "  Found: $PYTHON ($($PYTHON --version))"
+
+# Step 1b: Require Python 3.10+ (claude-agent-sdk minimum)
+PY_MAJOR=$($PYTHON -c "import sys; print(sys.version_info.major)")
+PY_MINOR=$($PYTHON -c "import sys; print(sys.version_info.minor)")
+if [ "$PY_MAJOR" -lt 3 ] || { [ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -lt 10 ]; }; then
+    echo "  ✗ Python 3.10+ is required (claude-agent-sdk). Found: $($PYTHON --version)"
+    echo "    brew install python@3.11"
     exit 1
 fi
 
@@ -47,7 +61,7 @@ fi
 echo ""
 echo "→ Installing Python dependencies..."
 "$VENV_DIR/bin/pip" install --upgrade pip -q
-"$VENV_DIR/bin/pip" install playwright beautifulsoup4 anthropic python-dotenv -q
+"$VENV_DIR/bin/pip" install playwright beautifulsoup4 claude-agent-sdk python-dotenv -q
 echo "  ✓ Dependencies installed"
 
 # Step 4: Install Playwright Chromium
