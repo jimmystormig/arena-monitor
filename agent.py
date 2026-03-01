@@ -35,8 +35,8 @@ HTML_TEMPLATE = """\
     <p style="margin: 6px 0 0; opacity: 0.9;">Nyhet för <strong>CHILD_NAME</strong> — DATE</p>
   </div>
   <div style="background: #fef9e7; border: 1px solid #f9e79f; padding: 16px 24px;">
-    <h3 style="margin: 0 0 8px; color: #7d6608; font-size: 15px;">Sammanfattning</h3>
-    <p style="margin: 0; color: #7d6608; font-size: 14px; line-height: 1.6;">SUMMARY_TEXT</p>
+    <h3 style="margin: 0 0 12px; color: #7d6608; font-size: 15px;">Sammanfattning</h3>
+    SUMMARY_TEXT
   </div>
   <div style="background: #eaf2f8; padding: 12px 24px; border-left: 1px solid #d4e6f1; border-right: 1px solid #d4e6f1;">
     <p style="margin: 4px 0; font-size: 13px;"><strong>Titel:</strong> TITLE</p>
@@ -69,16 +69,38 @@ En nyhet är NY om dess url INTE finns i denna lista.
 4. För varje ny nyhet, anropa send_email med:
    - to: värdet av miljövariabeln SMTP_TO
    - subject: "[Arena - CHILD_NAME] TITLE" där CHILD_NAME är barnets namn i title case
-   - body_text: ren text-sammanfattning på svenska (2-4 meningar)
+   - body_text: ren text-sammanfattning på svenska med prioriterade sektioner (se nedan)
    - body_html: HTML-e-post baserad på mallen nedan
 
-   Sammanfattningen ska fokusera på vad föräldrar behöver veta:
-   - Kommande prov, läxförhör eller glosor
-   - Läxor och inlämningar med deadlines
-   - Utflykter, besök eller events
-   - Studiedagar eller lov
-   - Schemainformation eller betyg
+   Sammanfattningen ska struktureras i tre prioritetsnivåer. Inkludera bara de sektioner
+   som faktiskt finns i nyheten — utelämna helt sektioner utan innehåll.
+
+   PRIORITET 1 — PROV (om det finns prov, dugga, läxförhör eller glosor att kunna):
+   <div style="background:#fdedec;border-left:4px solid #c0392b;padding:8px 14px;margin-bottom:10px;border-radius:0 4px 4px 0;">
+     <div style="font-weight:bold;color:#c0392b;margin-bottom:4px;">⚠ PROV / DUGGA</div>
+     <ul style="margin:0;padding-left:18px;color:#333;font-size:14px;line-height:1.7;">
+       <li>Datum + ämne/detaljer</li>
+     </ul>
+   </div>
+
+   PRIORITET 2 — ATT GÖRA / TA MED (om det finns saker att göra eller ta med till ett specifikt datum):
+   <div style="background:#fef5e4;border-left:4px solid #e67e22;padding:8px 14px;margin-bottom:10px;border-radius:0 4px 4px 0;">
+     <div style="font-weight:bold;color:#d35400;margin-bottom:4px;">📅 ATT GÖRA / TA MED</div>
+     <ul style="margin:0;padding-left:18px;color:#333;font-size:14px;line-height:1.7;">
+       <li>Datum + vad</li>
+     </ul>
+   </div>
+
+   PRIORITET 3 — LÄXOR OCH ÖVRIGT (om det finns läxor, studiedagar, lov eller övrig info):
+   <div style="background:#f4f6f7;border-left:4px solid #aab7b8;padding:8px 14px;margin-bottom:4px;border-radius:0 4px 4px 0;">
+     <div style="font-weight:bold;color:#566573;margin-bottom:4px;">📚 LÄXOR / ÖVRIGT</div>
+     <ul style="margin:0;padding-left:18px;color:#333;font-size:14px;line-height:1.7;">
+       <li>Detaljer</li>
+     </ul>
+   </div>
+
    Skriv INTE bara om artikeltexten — syntetisera den till en föräldrarvänlig sammanfattning.
+   För body_text: skriv samma sektioner som ren text med rubriker (PROV:, ATT GÖRA:, LÄXOR:).
 
    HTML-mall (ersätt CHILD_NAME, DATE, SUMMARY_TEXT, TITLE, URL, CONTENT_HTML):
 {HTML_TEMPLATE}
