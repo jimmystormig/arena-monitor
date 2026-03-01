@@ -6,13 +6,16 @@ Runs as a scheduled Claude CLI agent every 4 hours.
 ## Architecture
 
 ```text
-run.sh  ──►  claude CLI  ──►  tools/check-imap.py   (IMAP check)
-                         ──►  tools/arena-scraper.py (Playwright scraper)
-                         ──►  tools/send-email.py    (SMTP sender)
+run.sh  ──►  agent.py (Claude Agent SDK)
+                  ──►  tools/mcp_server.py (stdio MCP server)
+                            ──►  tools/check-imap.py   (IMAP check)
+                            ──►  tools/arena-scraper.py (Playwright scraper)
+                            ──►  tools/send-email.py    (SMTP sender)
 ```
 
-Claude orchestrates the flow and writes intelligent Swedish summaries.
-Credentials are loaded from `.env`.
+`agent.py` runs a Claude model via the Agent SDK. The model orchestrates the
+flow and writes intelligent Swedish summaries. Tools are exposed via an MCP
+server. Credentials are loaded from `.env`.
 
 ## Useful commands
 
@@ -20,7 +23,7 @@ Credentials are loaded from `.env`.
      ./run.sh
 
    Watch logs live:
-     tail -f logs/arena-monitor.log
+     tail -f logs/runs.log
 
    Force a full run (clear seen-news to re-process everything):
      echo '[]' > .arena-seen-news.json && ./run.sh
@@ -31,8 +34,9 @@ Credentials are loaded from `.env`.
    Restart the schedule:
      launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.stormig.arena-monitor.plist
 
-## Tool scripts (called by Claude via Bash)
+## Tool scripts (exposed via MCP server)
 
+   tools/mcp_server.py    — stdio MCP server, wraps the three tools below
    tools/check-imap.py    — Check for unread Arena notification emails → JSON
    tools/arena-scraper.py — Log into Arena, scrape news with full content → JSON
    tools/send-email.py    — Send an email (reads JSON payload from stdin)
