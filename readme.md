@@ -17,6 +17,33 @@ run.sh  ──►  agent.py (Claude Agent SDK)
 flow and writes intelligent Swedish summaries. Tools are exposed via an MCP
 server. Credentials are loaded from `.env`.
 
+## Installation
+
+**Prerequisites:** Python 3.10+, macOS (launchd scheduling)
+
+1. Clone the repo and enter the directory.
+
+2. Copy `.env.example` to `.env` and fill in your credentials:
+
+   ```text
+   ARENA_URL        — URL to your school's Arena instance
+   ARENA_USERNAME   — Arena login username
+   ARENA_PASSWORD   — Arena login password
+
+   IMAP_SERVER/PORT/USERNAME/PASSWORD  — IMAP account that receives Arena notifications
+   SMTP_SERVER/PORT/USERNAME/PASSWORD  — SMTP account used to send summary emails
+   SMTP_FROM        — Sender address
+   SMTP_TO          — Recipient address for summaries
+   ```
+
+3. Run the setup script (creates `.venv`, installs dependencies, installs Chromium, and registers the launchd job):
+
+   ```bash
+   ./setup.sh
+   ```
+
+   The monitor will immediately run once and then repeat every 4 hours automatically.
+
 ## Useful commands
 
    Run manually:
