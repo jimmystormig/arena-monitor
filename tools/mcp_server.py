@@ -86,5 +86,19 @@ def send_email(to: str, subject: str, body_text: str, body_html: str) -> str:
     return result.stdout or result.stderr
 
 
+@mcp.tool()
+def archive_imap(message_ids: list[str]) -> str:
+    """Archive IMAP emails by message ID. Copies each message to the Archive folder, flags as deleted, and expunges. Pass the message_ids list returned by check_imap."""
+    payload = {"message_ids": message_ids}
+    result = subprocess.run(
+        [VENV_PYTHON, os.path.join(SCRIPT_DIR, "tools", "archive-imap.py")],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        cwd=SCRIPT_DIR,
+    )
+    return result.stdout or result.stderr
+
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")

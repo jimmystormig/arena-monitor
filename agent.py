@@ -107,8 +107,11 @@ En nyhet är NY om dess url INTE finns i denna lista.
 
 5. Anropa write_seen_news med ALLA URL:er (tidigare sedda + nya) för att uppdatera listan.
 
+5b. Om nya nyheter hittades OCH e-post skickades, anropa archive_imap med message_ids från steg 1. \
+Om inga nya nyheter hittades, hoppa över — låt meddelandena ligga kvar.
+
 6. Skriv ut en kort sammanfattning på svenska, t.ex.:
-   "Klart. Hittade 3 nya nyheter (2 för barn 1, 1 för barn 2). Skickade 3 e-postmeddelanden."
+   "Klart. Hittade 3 nya nyheter (2 för barn 1, 1 för barn 2). Skickade 3 e-postmeddelanden. Arkiverade 2 notifieringar."
 """
 
 # ---------------------------------------------------------------------------
@@ -129,6 +132,7 @@ OPTIONS = ClaudeAgentOptions(
         "mcp__arena-tools__read_seen_news",
         "mcp__arena-tools__write_seen_news",
         "mcp__arena-tools__send_email",
+        "mcp__arena-tools__archive_imap",
     ],
     model="claude-sonnet-4-6",
 )
